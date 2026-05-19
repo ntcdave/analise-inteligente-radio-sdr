@@ -68,7 +68,7 @@ LLM_TEMPERATURE: float = 0.1
 # INTERFACE GRÁFICA
 # =============================================================================
 
-INTERVALO_TIMER_MS: int      = 120    # período do QTimer do espectrograma (~8 FPS)
+INTERVALO_TIMER_MS: int      = 220    # período do QTimer do espectrograma (~8 FPS)
 FFT_SIZE: int                = 4_096  # amostras para cálculo da PSD
 LARGURA_PAINEL_LATERAL: int  = 380    # px — largura fixa do painel de controlos
 LIMITE_ANALISE_REGISTOS: int = 5      # nº de transcrições enviadas ao LLM por sessão
