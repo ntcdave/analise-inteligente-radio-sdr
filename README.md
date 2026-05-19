@@ -9,7 +9,8 @@
 
 Este repositório contém o código-fonte desenvolvido para o Trabalho de Conclusão de Curso (TCC) em Engenharia. O foco principal é garantir privacidade, segurança e autonomia, processando dados sem qualquer dependência de serviços na nuvem.
 
-*(Recomendamos a inclusão de uma imagem/screenshot da interface PyQt6 aqui)*
+*Demo de demonstração da ferramenta*
+![Demo da ferramenta](./assets/python_A0U1wI4FwT.gif)
 
 ---
 
