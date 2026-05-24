@@ -1,4 +1,4 @@
-# Interface Gráfica e Espectrograma
+# Interface Gráfica e Espectrograma em Tempo Real
 PyQt6
 pyqtgraph
 
@@ -15,10 +15,7 @@ pyrtlsdrlib==0.0.4
 openai-whisper
 torch
 
-# Inteligência Artificial Edge (LLM)
-ollama
-
-# Análise de Dados e Dashboards
+# Análise Estatística, Dados e Dashboards
 pandas
 matplotlib
 seaborn
