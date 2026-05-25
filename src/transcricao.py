@@ -12,8 +12,6 @@ class TranscritorSDR:
     def __init__(self, modelo_tamanho="base", caminho_csv=None):
         print(f"🧠 A carregar o modelo Whisper ({modelo_tamanho})...")
         self.modelo = whisper.load_model(modelo_tamanho)
-        
-        # O caminho do ficheiro CSV será gerido pelo app.py dependendo da sessão
         self.caminho_csv = caminho_csv
 
     def _inicializar_csv(self):
@@ -21,7 +19,6 @@ class TranscritorSDR:
         if not self.caminho_csv:
             return
 
-        # Garante que a pasta onde o CSV vai ficar existe
         os.makedirs(os.path.dirname(self.caminho_csv), exist_ok=True)
         
         if not os.path.exists(self.caminho_csv):
@@ -31,31 +28,46 @@ class TranscritorSDR:
 
     def transcrever(self, caminho_audio, frequencia_mhz):
         """
-        Transcreve o áudio e guarda os dados no CSV da sessão ativa.
+        Transcreve o áudio e guarda os dados no CSV da sessão ativa, com proteções Anti-Alucinação.
         """
         if not os.path.exists(caminho_audio):
-            print(f"❌ Erro: Ficheiro de áudio não encontrado em {caminho_audio}")
             return ""
 
         if not self.caminho_csv:
-            print("❌ Erro: Caminho do CSV não definido. A sessão não foi inicializada corretamente.")
             return ""
 
-        # Garante que o ficheiro/cabeçalho existe antes de cada gravação
         self._inicializar_csv()
 
-        print(f"📝 A transcrever áudio da rádio {frequencia_mhz} MHz...")
         try:
-            # fp16=False evita avisos chatos se estiver a correr apenas com CPU
-            resultado = self.modelo.transcribe(caminho_audio, fp16=False, language="pt")
+            # =========================================================================
+            # O SEGREDO PARA RÁDIO: Parâmetros para evitar Alucinação no Chiado
+            # =========================================================================
+            resultado = self.modelo.transcribe(
+                caminho_audio, 
+                fp16=False, 
+                language="pt",
+                condition_on_previous_text=False, # Impede loops de repetição ("não não não")
+                no_speech_threshold=0.6           # Desiste de transcrever se achar que é muito ruidoso
+            )
+            
             texto = resultado["text"].strip()
+            
+            # Filtro duro: ignora textos que são obviamente alucinações do Whisper para áudio vazio
+            alucinacoes_comuns = ["obrigado.", "obrigado", "obrigada", "silêncio", ".", "..", "..."]
+            if len(texto) < 3 or texto.lower() in alucinacoes_comuns:
+                print("🔇 Ignorado: Apenas chiado ou silêncio detetado.")
+                return ""
             
             # --- GUARDAR NO BANCO DE DADOS (CSV) ---
             if texto:
                 data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                
+                raiz_projeto = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+                caminho_relativo = os.path.relpath(caminho_audio, raiz_projeto).replace('\\', '/')
+                
                 with open(self.caminho_csv, mode='a', newline='', encoding='utf-8') as f:
                     writer = csv.writer(f)
-                    writer.writerow([data_atual, frequencia_mhz, caminho_audio, texto])
+                    writer.writerow([data_atual, frequencia_mhz, caminho_relativo, texto])
                 
                 nome_ficheiro = os.path.basename(self.caminho_csv)
                 print(f"💾 Transcrição guardada no ficheiro '{nome_ficheiro}' com sucesso!")
