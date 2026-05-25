@@ -10,7 +10,7 @@
 Este repositório contém o código-fonte desenvolvido para o Trabalho de Conclusão de Curso (TCC) em Sistemas para Internet pelo Instituto Federal do Acre. O foco principal é garantir privacidade, segurança e autonomia, processando dados sem qualquer dependência de serviços na nuvem ou APIs externas.
 
 *Demo de demonstração da ferramenta*
-![Demo da ferramenta](./assets/python_A0U1wI4FwT.gif)
+![Demo da ferramenta](./assets/python_frL29le4BX.gif)
 
 ---
 
