@@ -2,12 +2,12 @@
 
 ![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)
 ![PyQt6](https://img.shields.io/badge/PyQt-6-green.svg)
-![Edge AI](https://img.shields.io/badge/Edge%20AI-Ollama%20%7C%20Whisper-orange)
+![Edge AI](https://img.shields.io/badge/Edge%20AI-Whisper%20%7C%20NLP%20OSINT-orange)
 ![TCC](https://img.shields.io/badge/Projeto-TCC-purple.svg)
 
 > Plataforma avançada de Inteligência de Sinais (SIGINT) que automatiza a captura, descodificação, transcrição e análise semântica de transmissões de rádio (FM) em tempo real, utilizando processamento 100% local (Edge Computing).
 
-Este repositório contém o código-fonte desenvolvido para o Trabalho de Conclusão de Curso (TCC) em Engenharia. O foco principal é garantir privacidade, segurança e autonomia, processando dados sem qualquer dependência de serviços na nuvem.
+Este repositório contém o código-fonte desenvolvido para o Trabalho de Conclusão de Curso (TCC) em Sistemas para Internet pelo Instituto Federal do Acre. O foco principal é garantir privacidade, segurança e autonomia, processando dados sem qualquer dependência de serviços na nuvem ou APIs externas.
 
 *Demo de demonstração da ferramenta*
 ![Demo da ferramenta](./assets/python_A0U1wI4FwT.gif)
@@ -17,19 +17,20 @@ Este repositório contém o código-fonte desenvolvido para o Trabalho de Conclu
 ## ✨ Funcionalidades Principais
 
 - **📻 Motor DSP Customizado:** Desmodulação de rádio FM em tempo real com numpy e scipy, aplicando decimação matemática e filtros Butterworth/De-Emphasis de forma multi-thread, com suporte robusto a desconexões de hardware.
-- **🎙️ Transcrição Offline (Speech-to-Text):** Conversão de áudio com ruídos em texto estruturado usando o modelo OpenAI Whisper (`base`).
-- **🧠 Inteligência Analítica (LLM):** Classificação, extração de entidades e resumos usando Meta Llama 3.2 (1B) rodando localmente no Ollama.
-- **📊 Dashboards Automáticos:** Geração de relatórios analíticos, gráficos de desempenho e linha do tempo de captações. Suporta retrocompatibilidade automática com bancos de dados legados (CSV sem cabeçalho).
+- **🎙️ Transcrição Offline (Speech-to-Text):** Conversão de áudio com ruídos em texto estruturado em tempo real usando o modelo local OpenAI Whisper (`base`).
+- **🧠 Mapeamento Ontológico OSINT (Edge NLP):** Classificação semântica em tempo real de termos e frases-chave contra uma ontologia de rádio estruturada em categorias de interesse (Segurança Pública, Desporto, Política, Religião, Trânsito, etc.), de forma instantânea e determinística.
+- **📊 Dashboards Automáticos:** Geração de relatórios analíticos em CSV e 5 gráficos de publicação (Nuvem de Palavras, Donut de Domínios Ontológicos, Termos Frequentes, Bigramas e Linha do Tempo).
 - **🖥️ Interface Gráfica Responsiva:** Desenvolvida em PyQt6 com visualização de espectro de radiofrequência em tempo real, isolando as threads de UI, DSP e Whisper para garantir fluidez.
 
 ---
 
 ## 🛠️ Tecnologias Utilizadas
 
-- **Interface:** `PyQt6`, `pyqtgraph`
+- **Interface:** `PyQt6`, `pyqtgraph` (aceleração por GPU), `qtawesome`
 - **DSP e Áudio:** `numpy`, `scipy`, `sounddevice`, hardware RTL-SDR Blog V4 (`pyrtlsdr`, `pyrtlsdrlib`)
-- **Inteligência Artificial:** `openai-whisper` (PyTorch), `ollama` (Llama 3.2 1B)
-- **Análise de Dados:** `pandas`, `matplotlib`, `seaborn`
+- **Inteligência Artificial (STT):** `openai-whisper` (PyTorch) rodando localmente
+- **Análise Semântica (NLP):** Processamento estatístico em Python com stopwords otimizadas para português e árvore ontológica de OSINT
+- **Análise de Dados e Plotting:** `pandas`, `matplotlib` (backend não interativo `Agg`), `seaborn`, `wordcloud`
 
 ---
 
@@ -39,7 +40,6 @@ Este repositório contém o código-fonte desenvolvido para o Trabalho de Conclu
 1. **Python 3.10 ou superior:** Instalado no sistema.
 2. **FFmpeg:** Obrigatório para o Whisper. Instale e garanta que está [adicionado ao PATH do Windows](https://phoenixnap.com/kb/ffmpeg-windows). O sistema também tentará localizar instalações feitas via `winget` automaticamente.
 3. **Antena RTL-SDR:** Conectada via USB. Você deve instalar os drivers WinUSB corretos usando o software [Zadig](https://zadig.akeo.ie/).
-4. **Ollama:** Instale o [Ollama](https://ollama.com/) e deixe o servidor rodando em segundo plano.
 
 ### Passo a Passo
 
@@ -56,10 +56,7 @@ pip install -r requirements.txt
 ```
 
 **3. Descarregar os Modelos de IA:**
-O modelo Whisper (`base`) será baixado automaticamente na primeira execução (~140MB). Para a análise semântica, baixe o modelo Llama via Ollama:
-```bash
-ollama pull llama3.2:1b
-```
+O modelo Whisper (`base`) será baixado automaticamente na primeira execução (~140MB) e salvo localmente. Não é necessária nenhuma outra configuração de IA ou servidores locais.
 
 **4. Iniciar a Aplicação:**
 Com a antena ligada e configurada, execute o entry point principal do sistema:
@@ -73,15 +70,17 @@ python main.py
 
 ```text
 projeto/
-├── main.py                 # Entry point (Bootstrap de ambiente e variáveis de PATH)
-├── app.py                  # Interface principal (PyQt6) e orquestração de módulos
-├── requirements.txt        # Lista de dependências Python
+├── main.py                 # Entry point (Bootstrap de ambiente e variáveis de PATH para DLLs e FFmpeg)
+├── app.py                  # Interface principal (PyQt6) e orquestração dos módulos do sistema
+├── config.py               # Configurações globais, constantes DSP, stopwords e dicionário ontológico OSINT
+├── requirements.txt        # Lista de dependências Python reais do projeto
 ├── src/
-│   ├── transcricao.py      # Interação com o OpenAI Whisper (STT)
-│   ├── analise.py          # Interrogador do Llama 3.2 e gerador de gráficos
-│   └── dsp.py              # Motor DSP (hardware SDR, fila IQ, ring buffer)
-├── dados/                  # Banco de dados CSVs, relatórios e chunks (.wav)
-└── ferramentas/rtl-sdr/    # DLLs e utilitários da RTL-SDR para Windows
+│   ├── dsp.py              # Motor DSP (hardware SDR, threads apartadas de leitura/processamento e ring buffer SPSC)
+│   ├── transcricao.py      # TranscritorSDR: Interação local com o OpenAI Whisper (STT) com filtros anti-alucinação
+│   ├── analise.py          # CientistaSDR: Análise estatística de NLP, mapeamento ontológico por dicionário e gráficos
+│   └── captura.py          # LEGADO/ÓRFÃO: Antigo script usando subprocessos (rtl_fm + sox), não utilizado
+├── ferramentas/rtl-sdr/    # DLLs e utilitários nativos da RTL-SDR para Windows (linkagem dinâmica)
+└── dados/projetos/         # Armazenamento local das sessões capturadas (audios WAV, CSV de transcrições e gráficos)
 ```
 
 ---
@@ -103,7 +102,7 @@ Caso encontre alguma dificuldade inicial na execução, confira as soluções pa
 - **Erro na biblioteca RTL-SDR:** Verifique se a pasta `ferramentas/rtl-sdr/` contém a `rtlsdr.dll` e se você configurou os drivers corretos usando o Zadig. (Usuários Linux/macOS podem precisar compilar a biblioteca localmente). Se encontrar erros como `AttributeError: function 'rtlsdr_set_dithering' not found`, assegure-se de que a biblioteca pyrtlsdr está atualizada.
 - **Falhas de Conexão com Antena ("Hardware Desconectado"):** O motor DSP (`src/dsp.py`) agora detecta automaticamente e lida de forma graciosa com erros `OSError` e desconexões de antena, emitindo logs e encerrando as threads corretamente para não causar "access violation".
 - **Falha ao Transcrever Áudio:** Se a aplicação apresentar erros durante o Whisper, o `ffmpeg` provavelmente não foi encontrado pelo sistema. Assegure-se de que ele está instalado e configurado no PATH. O `main.py` tenta injetar o caminho do ffmpeg do winget, mas a forma mais segura é adicioná-lo manualmente.
-- **Análise Semântica não inicia:** A IA necessita do servidor Ollama ativo. Verifique se o `ollama serve` está sendo executado em segundo plano. Além disso, o sistema de análise agora lê arquivos CSV legados ou novos de forma inteligente, dispensando conversões manuais.
+- **Análise Semântica / NLP:** O sistema realiza a análise clássica de Processamento de Linguagem Natural e classificação ontológica 100% offline de forma instantânea. O sistema é robusto e lê tanto arquivos CSV novos quanto os gerados em sessões passadas de forma transparente, sem qualquer necessidade de servidores de IA adicionais rodando localmente.
 
 Sentiu falta de alguma funcionalidade ou conseguiu resolver um bug diferente? **Contribua com o projeto abrindo uma Pull Request!**
 

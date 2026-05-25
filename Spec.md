@@ -22,55 +22,55 @@
 
 ### 1.1 Visão Geral
 
-O sistema opera como um **pipeline de três camadas** que transformam ondas eletromagnéticas em inteligência acionável, executando tudo localmente (Edge Computing):
+O sistema opera como um **pipeline de três camadas** que transformam ondas eletromagnéticas em inteligência acionável, executando tudo localmente (Edge Computing) e de forma extremamente otimizada:
 
 ```
 ┌─────────────┐    ┌──────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│  ANTENA      │───▸│  MOTOR DSP       │───▸│  WHISPER (STT)   │───▸│  LLAMA 3.2      │
-│  RTL-SDR V4  │    │  (app.py)        │    │  (transcricao.py)│    │  (analise.py)   │
-│  Hardware    │    │  Desmodulação FM  │    │  Áudio → Texto   │    │  Texto → Intel  │
+│  ANTENA      │───▸│  MOTOR DSP       │───▸│  WHISPER (STT)   │───▸│  NLP & ONTOLOGIA│
+│  RTL-SDR V4  │    │  (src/dsp.py)    │    │  (transcricao.py)│    │  (src/analise.py│
+│  Hardware    │    │  Desmodulação FM  │    │  Áudio → Texto   │    │  Texto → OSINT  │
 └─────────────┘    └──────────────────┘    └──────────────────┘    └─────────────────┘
        │                    │                       │                       │
        │              ┌─────▼──────┐          ┌─────▼──────┐         ┌─────▼──────┐
-       │              │ sounddevice│          │  CSV Bank  │         │ Dashboard  │
-       │              │ (Áudio ao  │          │ (Memória   │         │ (matplotlib│
-       │              │  vivo)     │          │ persistente│         │ + seaborn) │
+       │              │ sounddevice│          │ Sessão CSV │         │ Dashboard  │
+       │              │ (Áudio ao  │          │  (dados/   │         │ (Matplotlib│
+       │              │  vivo)     │          │  projetos) │         │  + Donut)  │
        └──────────────┴────────────┘          └────────────┘         └────────────┘
 ```
 
 ### 1.2 Fluxo de Dados Detalhado
 
-**Fase 1 — Captura e Desmodulação (Camada DSP em `app.py`)**
+**Fase 1 — Captura e Desmodulação (Camada DSP em `src/dsp.py`)**
 
-1. O `RtlSdr` abre o dispositivo USB e configura sample rate (1.024 MHz), frequência central e ganho.
-2. O loop `thread_master_loop` lê blocos de **102.400 amostras I/Q** continuamente.
-3. As amostras passam por uma **cadeia de DSP matemático puro**:
-   - **Decimação I/Q (÷4):** Reduz a taxa de 1.024 MHz para 256 kHz via média aritmética por blocos.
-   - **Filtro Butterworth passa-baixa (ordem 3):** Isola a banda do canal FM sintonizado. O filtro é recalculado apenas quando `banda_atual` muda (cache inteligente).
-   - **Desmodulação FM:** Calcula a diferença de fase entre amostras consecutivas via `np.angle(z[n] * conj(z[n-1]))`.
-   - **Decimação de áudio (÷8):** Reduz de 256 kHz para **32 kHz** (taxa de reprodução final).
-   - **Filtro De-Emphasis (75µs):** Remove a pré-ênfase padrão das emissões FM, suavizando o áudio.
-4. O áudio final é multiplicado pelo volume e injectado no `buffer_audio` (thread-safe via `threading.Lock`).
+1. O `RtlSdr` abre o dispositivo USB e configura a taxa de amostragem (1.024 MHz), a frequência central e o ganho discreto ideal.
+2. A thread `sdr-reader` lê blocos de **262.144 amostras I/Q** continuamente do barramento USB (~250 ms por ciclo) de forma bloqueante, enfileirando-as em uma fila circular thread-safe sem realizar processamento.
+3. A thread `dsp-worker` consome as amostras da fila e executa uma **cadeia de DSP matemático puro**:
+   - **Decimação I/Q (÷4):** Reduz a taxa de amostragem de 1.024 MHz para 256 kHz via downsampling.
+   - **Filtro Butterworth passa-baixa (ordem 3):** Isola o canal FM sintonizado (banda padrão de 170 kHz). O estado do filtro (`zi`) é persistido para eliminar transientes.
+   - **Desmodulação FM:** Calcula a diferença de fase de fase de sinal consecutiva via `np.angle(sinal[n] * conj(sinal[n-1]))`.
+   - **Decimação de áudio (÷8):** Reduz de 256 kHz para **32 kHz** (taxa padrão de processamento de áudio).
+   - **Filtro De-Emphasis (75µs):** Atenua agudos para repor o perfil da rádio FM comercial de áudio analógico.
+4. O áudio final é direcionado ao Ring Buffer (SPSC circular lock-free) se o áudio ao vivo estiver ligado, alimentando o callback do `sounddevice`.
 
 **Fase 2 — Transcrição (Camada STT em `src/transcricao.py`)**
 
-5. Quando a gravação IA está ativa, blocos de áudio são acumulados no `buffer_ia`.
-6. A cada **~300 blocos (~30 segundos)**, o sistema salva um ficheiro `chunk.wav` (PCM 16-bit, 32 kHz, mono).
-7. O `TranscritorSDR` carrega o modelo Whisper (`base`) e transcreve o áudio forçando idioma português (`language="pt"`).
-8. O texto resultante é persistido num ficheiro CSV com timestamp, frequência e caminho do áudio.
+5. Se a gravação estiver ativa, a thread do DSP acumula os blocos no `buffer_ia`.
+6. A cada **300 blocos (~30 segundos)**, o bloco é persistido no disco como arquivo WAV na pasta da sessão ativa (`dados/projetos/<nome_sessao>/audios/audio_<timestamp>.wav`).
+7. O `TranscritorSDR` carrega em cache local o modelo neural OpenAI Whisper (`base`), executando a inferência forçada em português (`pt`), desativando o histórico de texto anterior (evita alucinações repetitivas) e aplicando filtros de silêncio e chiado rígidos.
+8. Transcrições válidas são persistidas de forma append no arquivo CSV local da sessão de captura (`transcricoes_<nome_sessao>.csv`).
 
-**Fase 3 — Análise Semântica (Camada IA em `src/analise.py`)**
+**Fase 3 — Análise Semântica (Camada NLP em `src/analise.py`)**
 
-9. O `CientistaSDR` lê as últimas N transcrições do CSV.
-10. Para cada transcrição, executa em paralelo:
-    - **Análise Quantitativa:** Tokenização, remoção de stopwords PT-BR, contagem de frequência (Counter).
-    - **Análise Qualitativa (LLM):** Envia prompt estruturado ao Llama 3.2:1b via Ollama, pedindo categorização, extração de entidades e resumo.
-11. Ambas as análises são instrumentadas com `tracemalloc` para medição de pico de RAM.
-12. São gerados **5 gráficos científicos** (PNG 300dpi) e um relatório CSV consolidado.
+9. O `CientistaSDR` é instanciado de forma lazy e lê o CSV da sessão ativa de forma incremental.
+10. Para cada linha de transcrição, executa de forma offline:
+    - **Análise Estatística Clássica:** Tokenização, limpeza de pontuação, filtragem de mais de 70 stopwords em português, contagem de unigramas (termos) e extração de bigramas (expressões).
+    - **Mapeamento de Ontologia OSINT:** Percorre de forma determinística e recursiva a árvore de categorias (`config.ONTOLOGIA_OSINT`) sintonizando termos com categorias de interesse em inteligência de sinais (Segurança Pública, Desporto, Política, Religião, Trânsito e Logística).
+11. A computação é monitorada via `tracemalloc` para auditar a pegada de memória e tempo de processamento físico.
+12. São gerados **5 gráficos de alta resolução (300dpi)** e salvos na subpasta `estatisticas/` da sessão, juntamente com o CSV consolidado de agregação `matriz_estatistica.csv`.
 
 ### 1.3 Módulo Legado — `src/captura.py`
 
-O `SDRReceiver` é uma implementação **anterior** baseada em subprocessos (`rtl_fm.exe` → `sox.exe` via pipe). Foi substituída pelo motor DSP nativo em `app.py`, mas permanece no codebase como referência arquitetural. Ele não é importado por nenhum módulo ativo.
+O `SDRReceiver` é uma implementação **anterior** baseada em subprocessos (`rtl_fm.exe` → `sox.exe` via pipe). Foi substituída pelo motor DSP nativo de alto desempenho em `src/dsp.py`, mas permanece no codebase como referência. Ele não é importado por nenhum módulo ativo.
 
 ---
 
@@ -81,90 +81,86 @@ O `SDRReceiver` é uma implementação **anterior** baseada em subprocessos (`rt
 | Biblioteca | Versão | Justificativa |
 |---|---|---|
 | **PyQt6** | — | Framework de GUI desktop com suporte nativo a widgets, layouts responsivos e `QTimer` para integração thread-safe com a UI. Escolhido por maturidade e capacidade de construir interfaces complexas sem servidor web. |
-| **pyqtgraph** | — | Renderização de espectrogramas em tempo real com performance GPU-acelerada. Superior ao matplotlib para dados dinâmicos (atualização a cada 50ms). |
+| **pyqtgraph** | — | Renderização de espectrogramas em tempo real com performance GPU-acelerada. Superior ao matplotlib para dados dinâmicos (atualização a cada 220ms). |
 
 ### 2.2 Processamento Digital de Sinal
 
 | Biblioteca | Justificativa |
 |---|---|
-| **numpy** | Operações vetorizadas sobre arrays I/Q (reshape, mean, angle, conj). Essencial para processar 102.400 amostras por ciclo sem degradação de performance. |
+| **numpy** | Operações vetorizadas sobre arrays I/Q (reshape, mean, angle, conj). Essencial para processar 262.144 amostras por ciclo sem degradação de performance. |
 | **scipy.signal** | Implementação dos filtros Butterworth (`butter`) e filtragem stateful (`lfilter` com `zi`). O estado `zi` é preservado entre iterações para evitar transientes nas fronteiras de blocos. |
-| **sounddevice** | Stream de áudio em tempo real via callback. O `OutputStream` com `blocksize=0` permite latência adaptativa, evitando stutters. |
+| **sounddevice** | Stream de áudio em tempo real via callback. O `OutputStream` com `blocksize=2048` permite latência adaptativa, evitando stutters. |
 
-### 2.3 Inteligência Artificial
+### 2.3 Inteligência Artificial & NLP
 
 | Componente | Modelo | Justificativa |
 |---|---|---|
 | **openai-whisper** | `base` (~140MB) | Modelo de STT robusto contra ruído de rádio. A variante `base` equilibra precisão e velocidade em hardware consumer. O `fp16=False` garante compatibilidade com CPUs sem suporte a half-precision. |
 | **torch** | — | Backend de inferência do Whisper. Dependência obrigatória. |
-| **ollama** | Llama 3.2:1b (~1.3GB) | LLM compacto executado localmente via servidor Ollama. A escolha do modelo 1B permite inferência em máquinas sem GPU dedicada, com `num_ctx=1024` e `temperature=0.1` para respostas determinísticas e concisas. |
+| **Ontologia OSINT Nativa** | Dicionário Estático | Mecanismo de busca léxica determinística em Python baseada no dicionário estruturado `ONTOLOGIA_OSINT` em `config.py`. Fornece categorização semântica instantânea, 100% offline e com custo computacional nulo. |
 
 ### 2.4 Análise e Visualização
 
 | Biblioteca | Justificativa |
 |---|---|
-| **pandas** | Leitura e manipulação do CSV de transcrições. Operações como `tail()`, `groupby()` e conversão temporal (`to_datetime`). |
-| **matplotlib** (backend `Agg`) | Geração de gráficos estáticos em alta resolução (300 dpi) para inclusão em documentos acadêmicos. O backend `Agg` é não-interativo, evitando conflitos com a thread da GUI PyQt6. |
-| **seaborn** | Camada estética sobre matplotlib. Paletas científicas (`magma`, `viridis`, `coolwarm`, `Set2`, `crest`) e tema `whitegrid` para publicação acadêmica. |
-
-### 2.5 Hardware e Drivers
-
-| Componente | Descrição |
-|---|---|
-| **pyrtlsdr** | Binding Python para `librtlsdr`. Permite controle programático da antena (frequência, ganho, sample rate). |
-| **rtlsdr.dll** + utilitários | DLLs e executáveis nativos Windows distribuídos em `ferramentas/rtl-sdr/`. O PATH é modificado em runtime para garantir linkagem dinâmica. |
-
----
-
-## 3. Dicionário de Funcionalidades
+| **pandas** | Leitura e manipulação do CSV de transcrições de sessões. Operações como `tail()`, `groupby()` e conversão temporal (`to_datetime`). |
+| **matplotlib** (backend `Agg`) | Gera�## 3. Dicionário de Funcionalidades
 
 ### 3.1 `app.py` — Orquestrador Principal
 
 #### Classe `MainWindow(QMainWindow)`
 
-| Método | Responsabilidade |
+| Método / Atributo | Responsabilidade |
 |---|---|
-| `__init__` | Inicializa estado (frequência, ganho, volume, buffers), cria `TranscritorSDR`, constrói a interface e dispara o hardware em background. |
-| `closeEvent` | Shutdown gracioso: sinaliza `hardware_rodando=False`, espera 300ms, fecha stream de áudio e libera o dispositivo SDR. |
-| `construir_interface` | Monta toda a UI: painel lateral com scroll (sliders, botões, frames de captura e análise, log de texto) e gráfico de espectro bloqueado para interação do rato. |
-| `escolher_pasta` | Abre diálogo nativo para o utilizador redefinir o diretório de destino dos chunks `.wav`. |
-| `escolher_csv` | Abre diálogo para selecionar um CSV alternativo como fonte de dados para a análise semântica. |
-| `centralizar_grafico` | Recalcula o range X do espectrograma com base na frequência sintonizada e no nível de zoom. Atualiza a região visual da banda (faixa vermelha). |
-| `mudar_frequencia` | Converte o valor do slider (inteiro ×10) para MHz, atualiza a label, reconfigura o `center_freq` do SDR e recentra o gráfico. |
-| `mudar_ganho` | **Algoritmo de Ganho Inteligente:** consulta `valid_gains_db` do hardware, encontra o degrau discreto mais próximo do valor desejado, e aplica-o. Garante que o valor exibido na UI corresponde ao ganho real da antena. |
-| `mudar_volume` | Escala linear de volume (0–200% → 0.0–2.0). |
-| `mudar_zoom` / `mudar_altura_grafico` | Controlam os eixos X e Y do espectrograma respectivamente. |
-| `toggle_audio` | Liga/desliga a reprodução ao vivo. Ao ligar, limpa o buffer para evitar eco de áudio antigo. |
-| `callback_audio` | Callback do `sounddevice`: alimenta o output stream com amostras do buffer thread-safe. Se o buffer estiver vazio, envia silêncio (zeros). |
-| `iniciar_hardware_background` | Inicia o `QTimer` de atualização gráfica (50ms) e dispara `thread_master_loop` como daemon thread. |
-| `thread_master_loop` | **Loop principal do DSP.** Configura o SDR, cria o stream de áudio, e executa o ciclo infinito de leitura → desmodulação → reprodução/gravação. Contém toda a cadeia de filtros com estado persistente entre iterações. |
-| `atualizar_grafico` | Calcula a PSD (Power Spectral Density) via FFT sobre 4096 amostras, converte para dB, e atualiza a curva do pyqtgraph. |
-| `toggle_missao` | State machine da captura: valida parâmetros do modo selecionado (contínuo, tempo fixo, até horário), inicializa buffers e altera estado visual do botão. |
-| `verificar_termino` | Verifica condições de paragem automática (duração atingida ou horário-alvo alcançado). Dispara `toggle_missao` via `QTimer.singleShot` para operar na thread da UI. |
-| `processar_chunk` | Salva buffer de áudio como WAV (PCM 16-bit, 32kHz, mono), invoca o transcritor Whisper, e atualiza o log da interface. Executado em thread separada. |
-| `abrir_analise` | Desabilita o botão e dispara `rodar_analise` em background. |
-| `rodar_analise` | Importa `CientistaSDR` sob demanda (lazy import), instancia com o CSV selecionado, e executa a análise com limite configurável. |
+| `__init__` | Inicializa estado de sintonia, cria `TranscritorSDR` e `MotorDSP`, constrói a interface PyQt6 e inicia os timers dinâmicos de atualização. |
+| `closeEvent` | Shutdown gracioso: desativa flags de gravação e dsp, para os timers de atualização e da missão, desliga a pool de threads concorrentes do Whisper e fecha a antena. |
+| `_construir_interface` | Desenha toda a interface PyQt6 com painel de sintonia de rádio (sliders e spinbox de frequência e ganho), controlo de volume, aba de sessão de captura (com timers/relógio e botões de ação), console de logs e gráfico de espectro PSD. |
+| `_configurar_pastas_sessao` | Configura dinamicamente a estrutura de pastas do projeto no formato `dados/projetos/<nome_sessao>`, isolando os chunks de áudio e as estatísticas. |
+| `_escolher_pasta_sessao` | Abre diálogo nativo do sistema para selecionar uma pasta de sessão de gravação já existente no disco. |
+| `_alterar_sessao` | Atualiza o nome da sessão de captura ativa a partir do campo de texto e ajusta as pastas internas. |
+| `_mudar_frequencia_slider` / `_mudar_frequencia_spin` | Sincroniza a sintonização e aplica a alteração de MHz no hardware e no eixo X do gráfico. |
+| `_mudar_ganho` / `_mudar_volume` | Aplica as alterações de ganho de RF no hardware SDR e volume linear nos blocos de áudio. |
+| `_atualizar_eixos_grafico` | Ajusta as escalas visuais X (limites de zoom) e Y (amplitude em dB) do PlotWidget. |
+| `_toggle_audio` | Ativa ou silencia a reprodução ao vivo de áudio demodulado, limpando os buffers em caso de ativação para evitar lag. |
+| `_atualizar_grafico` | Executa o cálculo da densidade espectral PSD no bloco de dados I/Q dinâmicos do SDR e plota em tempo real. |
+| `_toggle_missao` | Inicializa ou interrompe a gravação em disco e transcrição. Bloqueia parâmetros de configuração temporal durante a execução. |
+| `_verificar_termino_tempo` | Timer disparado a cada 1 segundo que verifica se o limite de tempo por duração s (modo *Duração*) ou por relógio de sistema (modo *Até Horário*) foi atingido para terminar a captura de forma limpa. |
+| `_processar_chunk` | Executado de forma concorrente em thread secundária. Salva as amostras de áudio acumuladas de 30 segundos em arquivo `.wav` e aciona o Whisper para transcrever, escrevendo o resultado no CSV da sessão. |
+| `_toggle_retranscricao` | Inicia ou cancela o motor de re-transcrição de uma sessão inteira, útil para refazer as transcrições de todos os arquivos WAV de uma pasta apagando o CSV anterior. |
+| `_abrir_analise` / `_rodar_analise` | Desabilita os botões e invoca o `CientistaSDR` em thread secundária daemonizada para gerar relatórios e os 5 gráficos em background. |
 
-### 3.2 `src/transcricao.py` — Camada de Escrita
+### 3.2 `src/transcricao.py` — Camada de Transcrição
 
 #### Classe `TranscritorSDR`
 
 | Método | Responsabilidade |
 |---|---|
-| `__init__(modelo_tamanho)` | Carrega o modelo Whisper na RAM, garante existência da pasta `dados/`, e inicializa o CSV. |
-| `_inicializar_csv` | Cria o ficheiro CSV com cabeçalho (`Data_Hora`, `Frequencia_MHz`, `Caminho_Audio`, `Texto_Transcrito`) apenas se ele ainda não existir. Idempotente. |
-| `transcrever(caminho_audio, frequencia_mhz)` | Valida existência do ficheiro, executa `model.transcribe()` com `fp16=False` e `language="pt"`, e persiste o resultado no CSV via append. Retorna o texto ou string vazia em caso de erro. |
+| `__init__(modelo_tamanho)` | Inicializa o modelo OpenAI Whisper local na memória RAM. |
+| `_inicializar_csv` | Cria o arquivo CSV específico da sessão ativa com o cabeçalho (`Data_Hora`, `Frequencia_MHz`, `Caminho_Audio`, `Texto_Transcrito`) de forma segura. |
+| `transcrever(caminho_audio, frequencia_mhz)` | Transcreve o áudio WAV offline forçando o idioma português (`pt`), desliga condicionamento de contexto para mitigar repetições cíclicas, ignora chiados puros através do threshold de ruído de `0.6` e persiste no arquivo CSV. |
 
-### 3.3 `src/analise.py` — Motor Analítico
+### 3.3 `src/analise.py` — Motor Semântico e Estatístico
 
 #### Classe `CientistaSDR`
 
 | Método | Responsabilidade |
 |---|---|
-| `__init__(caminho_csv)` | Configura o modelo LLM (`llama3.2:1b`), define o CSV fonte (parametrizável ou padrão), e inicializa listas de acumulação para métricas e dados agregados. |
-| `limpar_texto(texto)` | Normaliza texto: converte para minúsculas e remove toda pontuação via regex `[^\w\s]`. |
-| `analise_quantitativa(texto)` | Pipeline estatístico: limpeza → tokenização → remoção de **70+ stopwords** PT-BR/PT-PT → contagem de frequência → top 5. Instrumentado com `tracemalloc` para benchmarking de memória. |
-| `analise_qualitativa_llm(texto)` | Constrói prompt estruturado e envia ao Ollama. Extrai a categoria via regex e acumula no histórico. Parâmetros LLM: contexto de 1024 tokens, máximo 150 tokens de predição, temperatura 0.1. |
+| `__init__(caminho_csv, pasta_saida)` | Constrói a estrutura analítica, configura a pasta de destino para as figuras e estatísticas da sessão. |
+| `limpar_texto(texto)` | Processa o texto da transcrição em minúsculas e remove pontuações e dígitos numéricos soltos via expressões regulares. |
+| `extrair_bigramas(palavras)` | Constrói pares contíguos de palavras (bigramas) a partir de uma lista de unigramas. |
+| `mapear_ontologia(palavras)` | Varre recursivamente a árvore do dicionário `ONTOLOGIA_OSINT` em busca de correspondências diretas de palavras para identificar os domínios governamentais e táticos no sinal de rádio. |
+| `analise_estatistica(texto)` | Pipeline de NLP: limpa o texto → filtra mais de 70 stopwords comerciais e legislativas → extrai unigramas e bigramas úteis → dispara o mapeamento ontológico. |
+| `gerar_graficos(df_completo)` | Gera 5 figuras acadêmicas em 300 dpi: **Fig 1** (Termos Frequentes), **Fig 2** (Bigramas de Expressões), **Fig 3** (Linha do Tempo de interceptações por horário), **Fig 4** (Nuvem de Palavras com wordcloud) e **Fig 5** (Gráfico Donut de Domínios OSINT sintonizados). |
+| `executar_analise(limite)` | Orquestra a execução estatística sobre o CSV. Instrumentado com `tracemalloc` para medir o consumo de RAM e registrar logs de desempenho e tempos de processamento. Exporta o consolidado ordenado de palavras mais frequentes para o arquivo `matriz_estatistica.csv`. |
+
+### 3.4 `src/captura.py` — Módulo Legado
+
+#### Classe `SDRReceiver`
+
+| Método | Responsabilidade |
+|---|---|
+| `__init__(...)` | Configura parâmetros de captura (frequência, duração, caminhos de `rtl_fm.exe` e `sox.exe`). |
+| `record_audio` | Cria pipeline de subprocessos `rtl_fm → sox` via pipe stdout/stdin. Gerencia ciclo de vida dos processos com terminação explícita e tempo de recuperação USB. **Não utilizado ativamente.** |0.1. |
 | `gerar_graficos_separados(df)` | Gera 5 figuras científicas: (1) barras de termos frequentes, (2) pizza de categorias, (3) barras de entidades com word-wrap, (4) subplot duplo de desempenho CPU vs LLM (tempo + RAM), (5) série temporal de interceptações por hora. Todas salvas em 300 dpi. |
 | `executar_analise(limite)` | Orquestrador: lê CSV → seleciona últimos N registros → executa análise dual por registro → gera gráficos → exporta relatório CSV consolidado (`relatorio_alertas_tcc.csv`). |
 
