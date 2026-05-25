@@ -1,21 +1,33 @@
+# ==========================================
 # Interface Gráfica e Espectrograma em Tempo Real
+# ==========================================
 PyQt6
 pyqtgraph
+qtawesome
 
+# ==========================================
 # Processamento de Sinal e Áudio (DSP)
+# ==========================================
 numpy
 scipy
 sounddevice
 
-# Antena RTL-SDR
+# ==========================================
+# Antena RTL-SDR e Hardware
+# ==========================================
 pyrtlsdr==0.4.0
 pyrtlsdrlib==0.0.4
 
-# Transcrição (Speech-to-Text)
+# ==========================================
+# Transcrição (Speech-to-Text Edge AI)
+# ==========================================
 openai-whisper
 torch
 
-# Análise Estatística, Dados e Dashboards
+# ==========================================
+# Análise Estatística, NLP e Dashboards
+# ==========================================
 pandas
 matplotlib
 seaborn
+wordcloud
