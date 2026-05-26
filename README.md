@@ -132,11 +132,16 @@ A pasta está organizada da seguinte forma:
 
 ---
 
-## 📖 Documentação Técnica Avançada
+## 📖 Documentação Técnica Avançada e Modelagem UML
 
 Para compreender detalhadamente a arquitetura do projeto, fluxo de dados do Processamento Digital de Sinal (DSP), padrões de projeto aplicados e pontos de extensibilidade, consulte o nosso documento de especificação técnica:
 
 👉 **[Ler a Especificação Completa (Spec.md)](./Spec.md)**
+
+O documento inclui:
+* 📊 **Diagrama de Casos de Uso:** Mapeamento das interações do operador com a ferramenta (sintonia, gravação, NLP, re-transcrição).
+* 🔄 **Diagrama de Sequência:** Visualização do pipeline de concorrência multithread de áudio e IA (Antena SDR ➔ DSP ➔ Whisper ➔ NLP).
+* 🏗️ **Diagrama de Classes:** Estrutura estática, atributos, métodos e relações das classes principais do software (`MainWindow`, `MotorDSP`, `TranscritorSDR`, `CientistaSDR`).
 
 ---
 

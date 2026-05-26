@@ -9,8 +9,11 @@
 ## Sumário
 
 1. [Arquitetura do Sistema](#1-arquitetura-do-sistema)
+   - 1.1 [Visão Geral](#11-visão-geral)
+   - 1.2 [Fluxo de Dados Detalhado (Diagrama de Sequência)](#12-fluxo-de-dados-detalhado)
+   - 1.3 [Interação do Usuário (Diagrama de Casos de Uso)](#13-interação-do-usuário-e-casos-de-uso)
 2. [Stack Técnica](#2-stack-técnica)
-3. [Dicionário de Funcionalidades](#3-dicionário-de-funcionalidades)
+3. [Dicionário de Funcionalidades (Diagrama de Classes)](#3-dicionário-de-funcionalidades)
 4. [Padrões de Projeto](#4-padrões-de-projeto)
 5. [Pontos de Extensibilidade](#5-pontos-de-extensibilidade)
 6. [Guia de Manutenção](#6-guia-de-manutenção)
@@ -38,6 +41,10 @@ O sistema opera como um **pipeline de processamento local (Edge Computing)** est
 ```
 
 ### 1.2 Fluxo de Dados Detalhado
+
+Para compreender visualmente as interações dinâmicas no tempo, o ciclo de vida das threads concorrentes, a troca de mensagens e a orquestração do pipeline completo (desde a leitura física do buffer de radiofrequência da antena até a conversão pela rede neural Whisper e a análise semântica em lote), consulte o diagrama de sequência abaixo:
+
+![Diagrama de Sequência — Pipeline de Captura e IA Edge](./assets/Diagrama%20de%20Sequ%C3%AAncia%20(Pipeline%20de%20Captura%20e%20IA%20Edge).png)
 
 #### Fase 1 — Captura e Processamento de Sinal Digital (Camada DSP em `src/dsp.py`)
 1. **Inicialização do Hardware:** O módulo `RtlSdr` inicializa a antena conectada via USB, aplicando a taxa de amostragem física de **1.024 MHz** (`SAMPLE_RATE_SDR`), sintonizando a frequência central de FM configurada e quantizando o ganho de RF discreto ideal aceito pelo hardware.
@@ -74,6 +81,12 @@ O sistema opera como um **pipeline de processamento local (Edge Computing)** est
     * **Fig 3:** Telemetria temporal (Interceptações por hora do dia).
     * **Fig 4:** Densidade semântica (Nuvem de Palavras clássica).
     * **Fig 5:** Mapeamento Ontológico (Gráfico de anel/Donut detalhando a distribuição dos domínios sintonizados no espectro).
+
+### 1.3 Interação do Usuário e Casos de Uso
+
+Abaixo está o diagrama de casos de uso que mapeia as interações e capacidades que o operador possui ao interagir com o sistema desktop, incluindo o controle físico de sintonia e ganhos de radiofrequência, orquestração de missões/gravações, gerenciamento concorrente de re-transcrições e extração estatística de NLP:
+
+![Diagrama de Casos de Uso — Interação do Usuário](./assets/Diagrama%20de%20Casos%20de%20Uso%20(Intera%C3%A7%C3%A3o%20do%20Usu%C3%A1rio).png)
 
 ---
 
@@ -116,6 +129,10 @@ O sistema opera como um **pipeline de processamento local (Edge Computing)** est
 ---
 
 ## 3. Dicionário de Funcionalidades
+
+Para compreender a estrutura estática do software, a modelagem das classes principais (`MainWindow`, `MotorDSP`, `TranscritorSDR`, `CientistaSDR`), seus métodos, atributos e as relações de herança e dependência dentro do ecossistema do projeto, consulte o diagrama de classes abaixo:
+
+![Diagrama de Classes — Estrutura do Sistema](./assets/Diagrama%20de%20Classes%20(Estrutura%20do%20Sistema).png)
 
 ### 3.1 `app.py` — Interface Gráfica e Orquestração
 
