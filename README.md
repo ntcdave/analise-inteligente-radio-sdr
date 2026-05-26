@@ -101,6 +101,37 @@ projeto/
 
 ---
 
+## 🧪 Sessão de Validação e Caso de Estudo (`sessao_20260525_2212`)
+
+Para fins de **validação científica da pesquisa** e **demonstração prática da proposta da ferramenta**, o repositório inclui uma sessão de dados reais pré-capturada localizada em:
+`dados/projetos/sessao_20260525_2212/`
+
+Esta sessão serve como um banco de dados de referência (dataset de teste) que permite validar todas as etapas lógicas do pipeline (transcrição Whisper offline, higienização de dados, análise de NLP e geração de dashboards) sem a necessidade obrigatória de possuir o hardware RTL-SDR conectado no momento do teste.
+
+### 📋 Estrutura da Sessão de Validação
+
+A pasta está organizada da seguinte forma:
+
+* **🎙️ Áudios Originais (`/audios`):** Chunks de áudio no formato `.wav` capturados em tempo real diretamente do espectro de radiofrequência FM. Eles contêm transmissões reais de rádio (programação musical e jornalística da Rádio Senado) repletas de ruído eletromagnético e desvanecimento de sinal, ideais para testar a robustez do motor Whisper.
+* **📄 Transcrições Consolidadas (`transcricoes_sessao_20260525_2212.csv`):** O histórico completo das conversões de áudio em texto geradas de forma 100% offline local. Cada registro mapeia com precisão o timestamp exato, a frequência sintonizada (100.9 MHz), o arquivo de áudio correspondente e a transcrição obtida após os filtros anti-alucinação.
+* **📊 Estatísticas e NLP (`/estatisticas`):** O dashboard analítico gerado sob demanda a partir das transcrições, contendo:
+  * `fig1_termos.png` / `fig2_expressoes.png`: Análise de frequência de unigramas e bigramas.
+  * `fig3_linha_do_tempo.png`: Ocorrência temporal das capturas ao longo da sessão.
+  * `fig4_nuvem_palavras.png`: Nuvem de palavras que evidencia a densidade semântica da escuta.
+  * `fig5_ontologia.png`: Distribuição percentual das categorias mapeadas na árvore taxonômica OSINT (Ex: Cultura, Segurança, Sociedade).
+  * `matriz_estatistica.csv`: Tabela consolidada de termos e relevâncias quantitativas.
+
+### ⚙️ Como Validar a Proposta com esta Sessão
+
+1. **Validação da Análise Estatística (NLP):**
+   Com o ambiente ativado, você pode abrir a interface gráfica (`python main.py`), carregar a sessão existente `sessao_20260525_2212` e clicar no botão **"Gerar Estatísticas"** para processar em tempo de execução os dados do CSV e recriar os gráficos na pasta de destino de forma instantânea.
+   
+2. **Validação da Re-transcrição Concorrente:**
+   Utilize o painel de re-transcrição para varrer concorrentemente a pasta de áudios `audios/` da sessão, regenerando as transcrições locais e comprovando o funcionamento dinâmico da pool de threads e a estabilidade da inferência do Whisper.
+
+
+---
+
 ## 📖 Documentação Técnica Avançada
 
 Para compreender detalhadamente a arquitetura do projeto, fluxo de dados do Processamento Digital de Sinal (DSP), padrões de projeto aplicados e pontos de extensibilidade, consulte o nosso documento de especificação técnica:
