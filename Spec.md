@@ -1,6 +1,6 @@
-# 📡 Spec.md — Especificação Técnica de Pesquisa: Sistema SDR Inteligente
+# 📡 Spec.md — Especificação Técnica de Pesquisa: analise-radio-sdr
 
-> **Projeto:** Sistema SDR Inteligente — Monitoramento e Edge AI  
+> **Projeto:** analise-radio-sdr  
 > **Tipo:** Especificação de Software / Projeto de Pesquisa Científica  
 > **Versão do Documento:** 1.0 (Higienizada e Anonimizada)
 
