@@ -154,4 +154,14 @@ O documento inclui:
 
 ---
 
+## 📄 Licença
+
+Este projeto está licenciado sob a **GNU General Public License v3.0 (GPLv3)**. Isso significa que você pode modificar, distribuir e utilizar o software para fins comerciais ou privados, desde que:
+1. O código-fonte original e todas as modificações sejam mantidos abertos sob a mesma licença.
+2. Seja incluído o aviso de direitos autorais original e a cópia da licença.
+3. Todas as alterações relevantes feitas no código sejam explicitamente documentadas.
+
+Para ler os termos e condições completos, consulte o arquivo [LICENSE](./LICENSE) na raiz deste repositório.
+---
+
 > *Projeto de pesquisa científica desenvolvido para investigar a implementação de técnicas de Edge AI aplicadas a Radiofrequência e processamento DSP local.*
