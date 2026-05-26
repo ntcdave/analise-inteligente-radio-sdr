@@ -1,4 +1,4 @@
-# 📡 Sistema SDR Inteligente: Monitoramento e Edge AI
+# 📡 Sistema de Análise de Rádio SDR
 
 ![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)
 ![PyQt6](https://img.shields.io/badge/PyQt-6-green.svg)
