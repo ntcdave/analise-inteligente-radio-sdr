@@ -52,8 +52,8 @@ Este repositório contém o código-fonte desenvolvido para fins de pesquisa cie
 
 **1. Clonar o Repositório:**
 ```bash
-git clone https://github.com/anonymous/sdr-edge-ai.git
-cd sdr-edge-ai
+git clone https://github.com/anonymous/analise-radio-sdr.git
+cd analise-radio-sdr
 ```
 
 **2. Instalar Dependências:**
