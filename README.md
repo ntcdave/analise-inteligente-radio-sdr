@@ -109,12 +109,6 @@ Para compreender detalhadamente a arquitetura do projeto, fluxo de dados do Proc
 
 ---
 
-## 🛡️ Segurança e Boas Práticas de Anonimização
-
-Este projeto é **Open Source**! A comunidade é muito bem-vinda para explorar o código, abrir Issues para reportar problemas ou sugerir melhorias através de Pull Requests. 
-
----
-
 ## 🤝 Resolução de Problemas (Troubleshooting)
 
 - **Erro na biblioteca RTL-SDR:** Verifique se a pasta `ferramentas/rtl-sdr/` contém a `rtlsdr.dll` e se você configurou os drivers corretos usando o Zadig. Se encontrar erros como `AttributeError: function 'rtlsdr_set_dithering' not found`, certifique-se de que a biblioteca pyrtlsdr está atualizada.
