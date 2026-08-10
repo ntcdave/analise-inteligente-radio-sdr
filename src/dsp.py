@@ -56,19 +56,6 @@ _NYQUIST_POS_IQ = 128_000.0
 
 
 class MotorDSP:
-    """
-    Encapsula todo o pipeline de processamento de sinal digital.
-
-    Uso:
-        motor = MotorDSP(frequencia_mhz=100.9, ganho_db=40.0)
-        motor.on_ganho_real      = lambda g: ...   # UI callback
-        motor.on_erro_antena     = lambda m: ...   # UI callback
-        motor.on_chunk_pronto    = lambda a: ...   # chamado com ndarray de áudio
-        motor.on_verificar_termino = lambda: ...   # verifica condições de paragem
-        motor.iniciar()
-        ...
-        motor.parar()
-    """
 
     def __init__(self, frequencia_mhz: float = FREQUENCIA_PADRAO_MHZ,
                  ganho_db: float = GANHO_PADRAO_DB) -> None:

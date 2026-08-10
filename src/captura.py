@@ -3,9 +3,6 @@ import os
 import time
 
 class SDRReceiver:
-    """
-    Camada 1: O Ouvido (Versão com Gerenciamento de Memória e Hardware).
-    """
     def __init__(self, frequency="104.9M", duration=30, output_dir="dados/brutos", filename="gravacao_atual.wav"):
         self.frequency = frequency
         self.duration = duration
