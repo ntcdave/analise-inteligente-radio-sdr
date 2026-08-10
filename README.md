@@ -12,6 +12,12 @@ Este repositório contém o código-fonte desenvolvido para fins de pesquisa cie
 *Demonstração da ferramenta em execução*
 ![Demonstração da ferramenta](./assets/python_frL29le4BX.gif)
 
+### 🧭 Diagrama da Ferramenta
+
+![Diagrama da ferramenta](./assets/diagrama%20da%20ferramenta.jpeg)
+
+Este diagrama resume o fluxo principal do sistema: a antena RTL-SDR captura o sinal de rádio, o módulo DSP processa e decodifica o áudio, o Whisper realiza a transcrição local e o motor de análise gera estatísticas, dashboards e classificação semântica dos conteúdos capturados.
+
 ---
 
 ## ✨ Funcionalidades Principais
